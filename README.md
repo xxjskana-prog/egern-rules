@@ -19,3 +19,18 @@ rules:
       policy: Proxy
       update_interval: 86400
 ```
+
+## Loon
+
+Remote rule URL:
+
+```text
+https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini-Loon.list
+```
+
+Loon configuration example:
+
+```ini
+[Rule]
+RULE-SET,https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini-Loon.list,Proxy
+```
