@@ -1,69 +1,37 @@
-# Egern Rules
+# Proxy Rules
 
-Personal Egern rule sets.
+Personal rule sets for Loon, Egern, and Shadowrocket.
 
 ## Gemini
 
-Raw rule-set URL:
+| Client | Raw URL |
+| --- | --- |
+| Loon | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini-Loon.list` |
+| Egern | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini.yaml` |
+| Shadowrocket | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini-Shadowrocket.list` |
 
-```text
-https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini.yaml
+## WhatsApp
+
+| Client | Raw URL |
+| --- | --- |
+| Loon | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp-Loon.list` |
+| Egern | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp.yaml` |
+| Shadowrocket | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp-Shadowrocket.list` |
+
+## Usage
+
+Loon and Shadowrocket rule-set example:
+
+```ini
+RULE-SET,<RAW_URL>,Proxy
 ```
 
-Egern configuration example:
+Egern rule-set example:
 
 ```yaml
 rules:
   - rule_set:
-      match: "https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini.yaml"
-      policy: Proxy
-      update_interval: 86400
-```
-
-## Loon
-
-Remote rule URL:
-
-```text
-https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini-Loon.list
-```
-
-Loon configuration example:
-
-```ini
-[Rule]
-RULE-SET,https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Gemini-Loon.list,Proxy
-```
-
-## WhatsApp for Loon
-
-Remote rule URL:
-
-```text
-https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp-Loon.list
-```
-
-Loon configuration example:
-
-```ini
-[Rule]
-RULE-SET,https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp-Loon.list,Proxy
-```
-
-## WhatsApp for Egern
-
-Remote rule URL:
-
-```text
-https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp.yaml
-```
-
-Egern configuration example:
-
-```yaml
-rules:
-  - rule_set:
-      match: "https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp.yaml"
+      match: "<RAW_URL>"
       policy: Proxy
       update_interval: 86400
 ```
