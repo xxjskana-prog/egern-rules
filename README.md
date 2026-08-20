@@ -18,6 +18,16 @@ Personal rule sets for Loon, Egern, and Shadowrocket.
 | Egern | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp.yaml` |
 | Shadowrocket | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/WhatsApp-Shadowrocket.list` |
 
+## Nagram
+
+Nagram is a third-party Telegram client. These rules cover Nagram's Telegram endpoints, MTProto IP ranges, Telegram-related CDN domains, and the Nagram official site.
+
+| Client | Raw URL |
+| --- | --- |
+| Loon | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Nagram-Loon.list` |
+| Egern | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Nagram.yaml` |
+| Shadowrocket | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/Nagram-Shadowrocket.list` |
+
 ## Usage
 
 Loon and Shadowrocket rule-set example:
