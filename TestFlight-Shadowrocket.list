@@ -1,0 +1,8 @@
+# NAME: TestFlight
+# FORMAT: Shadowrocket Rule Set
+# SOURCE: Apple TestFlight
+# UPDATED: 2026-08-23
+
+DOMAIN,beta.apple.com
+DOMAIN,testflight.apple.com
+DOMAIN-KEYWORD,testflight
