@@ -1,0 +1,11 @@
+# NAME: TestFlight
+# FORMAT: Egern Rule Set
+# SOURCE: Apple TestFlight
+# UPDATED: 2026-08-23
+
+domain_set:
+  - beta.apple.com
+  - testflight.apple.com
+
+domain_keyword_set:
+  - testflight
