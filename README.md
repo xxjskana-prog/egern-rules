@@ -36,6 +36,14 @@ Nagram is a third-party Telegram client. These rules cover Nagram's Telegram end
 | Egern | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/X.yaml` |
 | Shadowrocket | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/X-Shadowrocket.list` |
 
+## TestFlight
+
+| Client | Raw URL |
+| --- | --- |
+| Loon | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/TestFlight-Loon.list` |
+| Egern | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/TestFlight.yaml` |
+| Shadowrocket | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/TestFlight-Shadowrocket.list` |
+
 ## Usage
 
 Loon and Shadowrocket rule-set example:
