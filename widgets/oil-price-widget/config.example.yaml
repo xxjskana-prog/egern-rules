@@ -1,5 +1,5 @@
-# 将油价小组件.js 作为 generic 脚本导入 Egern 后，
-# 在主配置的 widgets 字段中加入以下内容。
+# 手动导入 oil-price-widget.js 作为 generic 脚本后，
+# 或直接安装 module.yaml，再在主配置的 widgets 字段中加入以下内容。
 # API_URL 是唯一的数据请求地址；脚本不会访问其他固定网站。
 
 widgets:
