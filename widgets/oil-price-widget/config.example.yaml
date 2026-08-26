@@ -1,14 +1,24 @@
 # 手动导入 oil-price-widget.js 作为 generic 脚本后，
 # 或安装 module.yaml，再在主配置的 widgets 字段中加入以下内容。
+#
+# 在 Egern 的 Env 编辑器中逐项新增变量：
+# 名称: PROVINCE        值: 51（必填，四川省代码；也可以填写四川）
+# 名称: CITY            值: 成都（必填，城市或显示地区）
+# 名称: AREA_INDEX      值: 0（可选，多价区索引，从 0 开始）
+# 名称: REFRESH_MINUTES 值: 30（可选，刷新间隔，单位为分钟）
+# 名称: REQUEST_TIMEOUT 值: 15000（可选，请求超时，单位为毫秒）
 
 widgets:
   - name: "油价小组件"
     script_name: "oil-price-widget"
     env:
-      # 支持省份名称或代码，例如 "上海" 或 "31"。
+      # 名称: PROVINCE；值: 省份名称或行政代码，例如 "上海"、"31"、"四川" 或 "51"。
       PROVINCE: "51"
+      # 名称: CITY；值: 城市或显示地区，例如 "成都"。
       CITY: "成都"
-      # 多价区省份可取消注释并修改索引，索引从 0 开始。
+      # 名称: AREA_INDEX；值: 多价区索引。可选，索引从 0 开始。
       # AREA_INDEX: "0"
+      # 名称: REFRESH_MINUTES；值: 刷新间隔分钟数。
       REFRESH_MINUTES: "30"
+      # 名称: REQUEST_TIMEOUT；值: 请求超时毫秒数。
       REQUEST_TIMEOUT: "15000"

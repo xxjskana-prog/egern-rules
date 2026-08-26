@@ -1,5 +1,13 @@
 /**
  * Egern oil price widget.
+ *
+ * Egern 模块 Env 填写示例：
+ * 名称: PROVINCE        值: 51（必填，省份名称或行政代码）
+ * 名称: CITY            值: 成都（必填，城市或显示地区）
+ * 名称: AREA_INDEX      值: 0（可选，多价区索引，从 0 开始）
+ * 名称: REFRESH_MINUTES 值: 30（可选，刷新间隔，单位为分钟）
+ * 名称: REQUEST_TIMEOUT 值: 15000（可选，请求超时，单位为毫秒）
+ *
  * Data flow adapted from:
  * https://raw.githubusercontent.com/jnlaoshu/MySelf/master/Egern/Widget/GasPrice.js
  */
