@@ -55,8 +55,7 @@ const COMMON_HEADERS = {
 };
 
 const COLORS = {
-  // Egern 文档支持 rgba() 颜色；半透明背景可透出 iOS 小组件宿主的系统材质。
-  background: { light: 'rgba(245,247,250,0.62)', dark: 'rgba(23,25,28,0.68)' },
+  // Egern 文档支持 rgba() 颜色；价格单元使用半透明层叠在系统材质之上。
   surface: { light: 'rgba(255,255,255,0.42)', dark: 'rgba(37,40,44,0.48)' },
   primary: { light: '#17212B', dark: '#F2F4F7' },
   secondary: { light: '#5C6670', dark: '#A9B2BC' },
@@ -408,7 +407,6 @@ function buildAccessoryWidget(data, family, refreshAfter) {
       type: 'widget',
       children: [text(`${data.region} 92号 ${priceText(data.gasoline92)} · ${predictionText(data.prediction)}`, { size: 'caption1', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.45 })],
       padding: 2,
-      backgroundColor: COLORS.background,
       refreshAfter,
       url: SINOPEC_BASE,
     };
@@ -423,7 +421,6 @@ function buildAccessoryWidget(data, family, refreshAfter) {
       ],
       gap: 2,
       padding: 5,
-      backgroundColor: COLORS.background,
       refreshAfter,
       url: SINOPEC_BASE,
     };
@@ -440,7 +437,6 @@ function buildAccessoryWidget(data, family, refreshAfter) {
     ],
     gap: 3,
     padding: 5,
-    backgroundColor: COLORS.background,
     refreshAfter,
     url: SINOPEC_BASE,
   };
@@ -520,7 +516,6 @@ function buildMediumWidget(data, refreshAfter) {
     ],
     gap: 6,
     padding: [10, 12, 8, 12],
-    backgroundColor: COLORS.background,
     refreshAfter,
     url: SINOPEC_BASE,
   };
@@ -566,7 +561,6 @@ function buildWidget(data, family, refreshAfter) {
     children,
     gap: large ? 10 : 8,
     padding: small ? 12 : 14,
-    backgroundColor: COLORS.background,
     refreshAfter,
     url: SINOPEC_BASE,
   };
@@ -585,7 +579,6 @@ function errorWidget(message, refreshAfter) {
     ],
     gap: 8,
     padding: 14,
-    backgroundColor: COLORS.background,
     refreshAfter,
     url: SINOPEC_BASE,
   };

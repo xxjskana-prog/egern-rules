@@ -2,7 +2,7 @@
 
 这是一个严格按 Egern 小组件 DSL 编写的 `generic` 脚本，显示自选地区的 92/95/98 号汽油和 0 号柴油价格、下轮预测、本轮油价生效时间，以及下次调价时间。
 
-组件背景使用 Egern 文档支持的半透明 `rgba()` 颜色，iOS 会在小组件宿主背景上呈现透光的磨砂效果。Egern 当前没有公开的 `blur` 或 `material` DSL 属性，因此脚本不使用未文档化字段。
+组件根容器不指定 `backgroundColor`，交由 iOS WidgetKit 使用系统默认的毛玻璃材质；中号价格单元叠加 Egern 文档支持的半透明 `rgba()` 颜色。Egern 当前没有公开的 `blur` 或 `material` DSL 属性，因此脚本不使用未文档化字段。
 
 ## 数据来源
 
