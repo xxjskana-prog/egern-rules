@@ -526,22 +526,28 @@ function buildSmallWidget(data, refreshAfter) {
         smallPriceCell('柴油', data.diesel),
       ], { gap: 4, height: 28 }),
       row([
-        text(data.stale ? '上次刷新' : '最近刷新', { size: 8, weight: 'medium' }, data.stale ? COLORS.warning : COLORS.secondary, { maxLines: 1 }),
-        { type: 'spacer' },
-        text(refreshLabel, { size: 9, weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.55, textAlign: 'right' }),
-      ], { gap: 4 }),
+        column([
+          text(data.stale ? '上次刷新' : '最近刷新', { size: 8, weight: 'medium' }, data.stale ? COLORS.warning : COLORS.secondary, { maxLines: 1 }),
+          text(refreshLabel, { size: 9, weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.55 }),
+        ], { gap: 0, flex: 1 }),
+        column([
+          text('本轮生效', { size: 8, weight: 'medium' }, COLORS.secondary, { maxLines: 1, textAlign: 'right' }),
+          text(formatDateTime(data.effectiveAt), { size: 9, weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.55, textAlign: 'right' }),
+        ], { gap: 0, flex: 1, alignItems: 'end' }),
+      ], { gap: 6, alignItems: 'end', height: 22 }),
       row([
         column([
           text('下轮预测', { size: 8, weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
           text(smallPredictionText(data.prediction), { size: 9, weight: 'semibold' }, predictionColor(data.prediction), { maxLines: 1, minScale: 0.45 }),
-        ], { gap: 0, flex: 1 }),
+        ], { gap: 0 }),
+        { type: 'spacer' },
         column([
           text('下次调价', { size: 8, weight: 'medium' }, COLORS.secondary, { maxLines: 1, textAlign: 'right' }),
           text(adjustmentLabel, { size: 9, weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.45, textAlign: 'right' }),
-        ], { gap: 0, flex: 1, alignItems: 'end' }),
-      ], { gap: 6, alignItems: 'end' }),
+        ], { gap: 0, alignItems: 'end' }),
+      ], { gap: 6, alignItems: 'end', height: 22 }),
     ],
-    gap: 3,
+    gap: 2,
     padding: [8, 10, 8, 10],
     refreshAfter,
     url: SINOPEC_BASE,
