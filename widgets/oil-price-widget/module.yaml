@@ -1,5 +1,5 @@
 name: "油价小组件"
-description: "显示自选地区的实时油价、预测及调价时间"
+description: "使用中国石化数据显示自选地区油价、预测及调价时间"
 author: "xxjskana-prog"
 
 scriptings:

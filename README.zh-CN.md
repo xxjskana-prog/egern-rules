@@ -58,7 +58,7 @@ Nagram 是第三方 Telegram 客户端。本规则覆盖 Telegram/Nagram 常用�
 
 ## Egern 油价小组件
 
-小组件源码位于 [`widgets/oil-price-widget`](widgets/oil-price-widget)，支持自选地区、92/95/98 号汽油和 0 号柴油价格、预测价格、本次更新时间及下次调价时间。
+小组件源码位于 [`widgets/oil-price-widget`](widgets/oil-price-widget)，支持自选地区、92/95/98 号汽油和 0 号柴油价格、下轮预测、本轮油价生效时间及下次调价时间。
 
 | 项目 | 链接 |
 | --- | --- |
@@ -67,7 +67,7 @@ Nagram 是第三方 Telegram 客户端。本规则覆盖 Telegram/Nagram 常用�
 | 使用说明 | [`widgets/oil-price-widget/README.md`](widgets/oil-price-widget/README.md) |
 | Env 配置样例 | [`widgets/oil-price-widget/config.example.yaml`](widgets/oil-price-widget/config.example.yaml) |
 
-小组件不会内置或调用第三方油价网站。安装模块后，请在 Egern 的模块 Env 中配置你信任的 `API_URL`，并使用 `REGION` 选择地区。
+当前油价及本轮生效时间来自参考小组件使用的中国石化销售接口；下轮预测和下次调价信息沿用同一参考小组件的数据页面。无需配置 API 地址或 API Key，安装模块后在 Env 中使用 `PROVINCE`、`CITY` 和可选的 `AREA_INDEX` 选择地区。
 
 ## 使用方式
 

@@ -1,254 +1,315 @@
-const CACHE_KEY = 'oil-price-widget:last-data';
-const DEFAULT_REGION = '北京';
+/**
+ * Egern oil price widget.
+ * Data flow adapted from:
+ * https://raw.githubusercontent.com/jnlaoshu/MySelf/master/Egern/Widget/GasPrice.js
+ */
+
+const SINOPEC_BASE = 'https://cx.sinopecsales.com/yjkqiantai';
+const PREDICTION_BASE = 'http://m.qiyoujiage.com';
+const DEFAULT_PROVINCE = '51';
+const DEFAULT_CITY = '成都';
 const DEFAULT_REFRESH_MINUTES = 30;
-const DEFAULT_TIMEOUT = 10000;
+const DEFAULT_TIMEOUT = 15000;
+
+const PROVINCES = {
+  '11': '北京', '12': '天津', '13': '河北', '14': '山西', '15': '内蒙古',
+  '21': '辽宁', '22': '吉林', '23': '黑龙江', '31': '上海', '32': '江苏',
+  '33': '浙江', '34': '安徽', '35': '福建', '36': '江西', '37': '山东',
+  '41': '河南', '42': '湖北', '43': '湖南', '44': '广东', '45': '广西',
+  '46': '海南', '50': '重庆', '51': '四川', '52': '贵州', '53': '云南',
+  '54': '西藏', '61': '陕西', '62': '甘肃', '63': '青海', '64': '宁夏',
+  '65': '新疆',
+};
+
+const PREDICTION_SLUGS = {
+  '11': 'beijing', '12': 'tianjin', '13': 'hebei', '14': 'shanxi',
+  '15': 'neimenggu', '21': 'liaoning', '22': 'jilin', '23': 'heilongjiang',
+  '31': 'shanghai', '32': 'jiangsu', '33': 'zhejiang', '34': 'anhui',
+  '35': 'fujian', '36': 'jiangxi', '37': 'shandong', '41': 'henan',
+  '42': 'hubei', '43': 'hunan', '44': 'guangdong', '45': 'guangxi',
+  '46': 'hainan', '50': 'chongqing', '51': 'sichuan', '52': 'guizhou',
+  '53': 'yunnan', '54': 'xizang', '61': 'shanxi-3', '62': 'gansu',
+  '63': 'qinghai', '64': 'ningxia', '65': 'xinjiang',
+};
+
+const ADJUSTMENT_CALENDAR_2026 = [
+  [1, 12], [1, 23], [2, 9], [2, 23], [3, 9], [3, 23], [4, 7], [4, 21],
+  [5, 8], [5, 22], [6, 5], [6, 19], [7, 3], [7, 17], [7, 31], [8, 14],
+  [8, 28], [9, 11], [9, 25], [10, 14], [10, 28], [11, 11], [11, 25],
+  [12, 9], [12, 23],
+];
+
+const COMMON_HEADERS = {
+  Accept: 'application/json, text/plain, */*',
+  'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+  Referer: `${SINOPEC_BASE}/index.html`,
+  Origin: 'https://cx.sinopecsales.com',
+};
 
 const COLORS = {
   background: { light: '#F5F7FA', dark: '#17191C' },
   primary: { light: '#17212B', dark: '#F2F4F7' },
   secondary: { light: '#5C6670', dark: '#A9B2BC' },
   accent: { light: '#0A84FF', dark: '#64B5FF' },
-  positive: { light: '#16834B', dark: '#59D18A' },
+  up: { light: '#C62828', dark: '#FF6B6B' },
+  down: { light: '#16834B', dark: '#59D18A' },
   warning: { light: '#B46900', dark: '#FFB84D' },
-  divider: { light: '#D9DEE5', dark: '#353A40' },
   error: { light: '#C62828', dark: '#FF7B7B' },
 };
 
-function getEnv(ctx, key, fallback) {
-  if (!ctx || !ctx.env) return fallback;
-  const value = ctx.env[key];
-  return value === undefined || value === null || String(value).trim() === ''
-    ? fallback
-    : String(value).trim();
+function getEnv(ctx, names, fallback) {
+  const env = (ctx && ctx.env) || {};
+  for (let index = 0; index < names.length; index += 1) {
+    const value = env[names[index]];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return String(value).trim();
+    }
+  }
+  return fallback;
 }
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function parseRefreshMinutes(value) {
-  const minutes = Number(value);
-  return Number.isFinite(minutes) ? clamp(Math.round(minutes), 15, 120) : DEFAULT_REFRESH_MINUTES;
+function parseNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
-function parseTimeout(value) {
-  const timeout = Number(value);
-  return Number.isFinite(timeout) ? clamp(Math.round(timeout), 3000, 30000) : DEFAULT_TIMEOUT;
+function normalizeProvince(value) {
+  const raw = String(value || '').trim();
+  if (PROVINCES[raw]) return raw;
+  const cleaned = raw.replace(/省|市|自治区|壮族|回族|维吾尔/g, '');
+  const match = Object.keys(PROVINCES).find((code) => {
+    const name = PROVINCES[code];
+    return name === cleaned || name.includes(cleaned) || cleaned.includes(name);
+  });
+  return match || DEFAULT_PROVINCE;
 }
 
-function buildApiUrl(template, region) {
-  const encodedRegion = encodeURIComponent(region);
-  return String(template)
-    .replace(/\{region\}/gi, encodedRegion)
-    .replace(/\{city\}/gi, encodedRegion)
-    .replace(/\{地区\}/g, encodedRegion)
-    .replace(/\{城市\}/g, encodedRegion);
+function parseSetCookie(headers) {
+  let values = [];
+  if (headers && headers.getAll) {
+    try {
+      values = headers.getAll('set-cookie') || [];
+    } catch (_) {
+      values = [];
+    }
+  }
+  if (!values.length && headers && headers.get) {
+    try {
+      const value = headers.get('set-cookie');
+      if (value) values = Array.isArray(value) ? value : [value];
+    } catch (_) {
+      values = [];
+    }
+  }
+  return values
+    .reduce((result, value) => result.concat(String(value).split(/,\s*(?=[A-Za-z0-9_]+=)/)), [])
+    .map((value) => value.split(';')[0].trim())
+    .filter(Boolean)
+    .join('; ');
 }
 
-function parseHeaders(raw) {
-  if (!raw) return {};
+async function readJSONResponse(response, label) {
+  if (!response || response.status < 200 || response.status >= 300) {
+    throw new Error(`${label} HTTP ${response ? response.status : '请求失败'}`);
+  }
+  const body = await response.text();
   try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const headers = {};
-    Object.keys(parsed).forEach((key) => {
-      const value = parsed[key];
-      if (Array.isArray(value)) headers[key] = value.map((item) => String(item));
-      else if (value !== undefined && value !== null) headers[key] = String(value);
-    });
-    return headers;
+    return JSON.parse(body);
   } catch (_) {
-    return {};
+    throw new Error(`${label}返回格式异常`);
   }
 }
 
-function normalizeKey(value) {
-  return String(value).toLowerCase().replace(/[\s_\-#号]/g, '');
-}
-
-function stringValue(value) {
-  if (value === undefined || value === null) return '';
-  if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  return '';
-}
-
-function hasPriceLike(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Object.keys(value).some((key) => {
-    const normalized = normalizeKey(key);
-    return normalized === '92' || normalized === '95' || normalized === '98' ||
-      normalized === '0' || normalized.includes('price92') || normalized.includes('gas92') ||
-      normalized.includes('汽油92') || normalized.includes('柴油');
+function resolveAreaIndex(payload, city, explicitIndex) {
+  const data = payload.data || payload;
+  const areas = Array.isArray(data.area) ? data.area : [];
+  if (!areas.length) return 0;
+  if (explicitIndex !== null) return clamp(Math.round(explicitIndex), 0, areas.length - 1);
+  if (!city) return 0;
+  const wanted = String(city).trim();
+  const index = areas.findIndex((area) => {
+    const check = area.areaCheck || {};
+    const name = check.AREA_NAME || check.CITY_NAME || check.PROVINCE_NAME || area.areaName || '';
+    return name && (String(name).includes(wanted) || wanted.includes(String(name)));
   });
+  return index >= 0 ? index : 0;
 }
 
-function containsPriceLike(value, depth) {
-  if (depth > 5 || value === null || value === undefined) return false;
-  if (hasPriceLike(value)) return true;
-  if (Array.isArray(value)) return value.some((item) => containsPriceLike(item, depth + 1));
-  if (typeof value !== 'object') return false;
-  return Object.keys(value).some((key) => containsPriceLike(value[key], depth + 1));
+function fuelValue(check, priceData, rawKey, priceKey) {
+  if (check && check[rawKey] !== 'Y') return null;
+  const value = Number(priceData && priceData[priceKey]);
+  return Number.isFinite(value) ? value : null;
 }
 
-function regionText(value) {
-  return stringValue(value).replace(/[省市县区]$/, '');
+function fuelDelta(priceData, priceKey) {
+  const value = Number(priceData && priceData[`${priceKey}_STATUS`]);
+  return Number.isFinite(value) ? value : null;
 }
 
-function regionMatches(value, region) {
-  const candidate = regionText(value);
-  const wanted = regionText(region);
-  if (!candidate || !wanted) return false;
-  return candidate === wanted || candidate.includes(wanted) || wanted.includes(candidate);
+function parseSinopecDate(value) {
+  if (!value) return null;
+  const normalized = String(value).trim().replace(' ', 'T');
+  const withZone = /(?:Z|[+-]\d\d:\d\d)$/.test(normalized) ? normalized : `${normalized}+08:00`;
+  const date = new Date(withZone);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function findExactRegionRecord(value, region, depth) {
-  if (depth > 5 || value === null || value === undefined) return null;
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      const match = findExactRegionRecord(value[index], region, depth + 1);
-      if (match) return match;
+function extractCurrentData(payload, provinceCode, city, explicitIndex) {
+  const data = payload.data || payload;
+  const areas = Array.isArray(data.area) ? data.area : [];
+  const areaIndex = resolveAreaIndex(payload, city, explicitIndex);
+  const selected = areas.length ? areas[areaIndex] : null;
+  const check = (selected && selected.areaCheck) || data.provinceCheck || {};
+  const priceData = (selected && selected.areaData) || data.provinceData || {};
+  const provinceName = check.PROVINCE_NAME || PROVINCES[provinceCode];
+  const areaName = check.AREA_NAME || check.CITY_NAME || (selected && selected.areaName) || '';
+  const displayRegion = city || areaName || provinceName;
+
+  let gasoline98 = fuelValue(check, priceData, 'GAS_98', 'GAS_98');
+  let gasoline98Delta = fuelDelta(priceData, 'GAS_98');
+  if (gasoline98 === null) {
+    gasoline98 = fuelValue(check, priceData, 'AIPAO98', 'AIPAO_GAS_98');
+    gasoline98Delta = fuelDelta(priceData, 'AIPAO_GAS_98');
+  }
+
+  const result = {
+    provinceCode,
+    provinceName,
+    city,
+    areaName,
+    areaIndex,
+    region: displayRegion,
+    gasoline92: fuelValue(check, priceData, 'GAS_92', 'GAS_92'),
+    gasoline95: fuelValue(check, priceData, 'GAS_95', 'GAS_95'),
+    gasoline98,
+    diesel: fuelValue(check, priceData, 'CHAI_0', 'CHECHAI_0'),
+    deltas: {
+      gasoline92: fuelDelta(priceData, 'GAS_92'),
+      gasoline95: fuelDelta(priceData, 'GAS_95'),
+      gasoline98: gasoline98Delta,
+      diesel: fuelDelta(priceData, 'CHECHAI_0'),
+    },
+    effectiveAt: parseSinopecDate(priceData.START_DATE),
+  };
+
+  if ([result.gasoline92, result.gasoline95, result.gasoline98, result.diesel].every((value) => value === null)) {
+    throw new Error('中国石化接口未返回可用油价');
+  }
+  return result;
+}
+
+async function loadCurrentPrices(ctx, provinceCode, city, explicitIndex, timeout) {
+  const initResponse = await ctx.http.get(`${SINOPEC_BASE}/data/initMainData`, {
+    headers: COMMON_HEADERS,
+    credentials: 'include',
+    timeout,
+  });
+  await readJSONResponse(initResponse, '初始化接口');
+  const cookie = parseSetCookie(initResponse.headers);
+  const headers = Object.assign({}, COMMON_HEADERS, { 'Content-Type': 'application/json;charset=UTF-8' });
+  if (cookie) headers.Cookie = cookie;
+
+  const response = await ctx.http.post(`${SINOPEC_BASE}/data/switchProvince`, {
+    headers,
+    body: { provinceId: String(provinceCode) },
+    credentials: 'include',
+    timeout,
+  });
+  const payload = await readJSONResponse(response, '油价接口');
+  return extractCurrentData(payload, provinceCode, city, explicitIndex);
+}
+
+function nextAdjustmentFromCalendar(now) {
+  if (now.getFullYear() !== 2026) return null;
+  for (let index = 0; index < ADJUSTMENT_CALENDAR_2026.length; index += 1) {
+    const item = ADJUSTMENT_CALENDAR_2026[index];
+    const effective = new Date(2026, item[0] - 1, item[1] + 1, 0, 0, 0);
+    if (effective.getTime() > now.getTime()) {
+      return {
+        iso: effective.toISOString(),
+        label: `${item[0]}月${item[1]}日 24:00`,
+        source: 'calendar',
+      };
     }
+  }
+  return null;
+}
+
+function parseNextAdjustment(html, now) {
+  const match = html.match(/下次油价\s*(\d{1,2})月(\d{1,2})日\s*24时调整/);
+  if (!match) return nextAdjustmentFromCalendar(now);
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  let year = now.getFullYear();
+  let effective = new Date(year, month - 1, day + 1, 0, 0, 0);
+  if (effective.getTime() <= now.getTime() - 24 * 60 * 60 * 1000) {
+    year += 1;
+    effective = new Date(year, month - 1, day + 1, 0, 0, 0);
+  }
+  return {
+    iso: effective.toISOString(),
+    label: `${month}月${day}日 24:00`,
+    source: 'page',
+  };
+}
+
+function parsePrediction(html) {
+  let match = html.match(/预计(上调|下调)(?:油价)?[\d.]+元\/吨\((\d+(?:\.\d+)?)元\/升-(\d+(?:\.\d+)?)元\/升\)/);
+  if (!match) match = html.match(/(上涨|上调|下调|下跌)(\d+(?:\.\d+)?)元\/升-(\d+(?:\.\d+)?)元\/升/);
+  if (!match) return null;
+  const minimum = Number(match[2]);
+  const maximum = Number(match[3]);
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) return null;
+  return {
+    direction: match[1] === '上调' || match[1] === '上涨' ? 'up' : 'down',
+    minimum,
+    maximum,
+  };
+}
+
+async function loadPrediction(ctx, provinceCode, timeout) {
+  const slug = PREDICTION_SLUGS[provinceCode];
+  if (!slug) return { prediction: null, nextAdjustment: nextAdjustmentFromCalendar(new Date()) };
+  const response = await ctx.http.get(`${PREDICTION_BASE}/${slug}.shtml`, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,*/*',
+      'User-Agent': COMMON_HEADERS['User-Agent'],
+    },
+    credentials: 'omit',
+    timeout,
+  });
+  if (!response || response.status < 200 || response.status >= 300) {
+    throw new Error(`预测页面 HTTP ${response ? response.status : '请求失败'}`);
+  }
+  const html = await response.text();
+  return {
+    prediction: parsePrediction(html),
+    nextAdjustment: parseNextAdjustment(html, new Date()),
+  };
+}
+
+function cacheKey(provinceCode, city, explicitIndex) {
+  return `oil-price-widget:${provinceCode}:${city || ''}:${explicitIndex === null ? '' : explicitIndex}`;
+}
+
+function getCache(ctx, key) {
+  try {
+    return ctx.storage ? ctx.storage.getJSON(key) : null;
+  } catch (_) {
     return null;
   }
-  if (typeof value !== 'object') return null;
-
-  const regionKeys = ['region', 'city', 'province', 'area', 'name', '地区', '城市', '省份', '名称'];
-  for (let index = 0; index < regionKeys.length; index += 1) {
-    if (regionMatches(value[regionKeys[index]], region) && containsPriceLike(value, 0)) return value;
-  }
-  const keys = Object.keys(value);
-  for (let index = 0; index < keys.length; index += 1) {
-    if (regionMatches(keys[index], region) && value[keys[index]] && typeof value[keys[index]] === 'object' && containsPriceLike(value[keys[index]], 0)) {
-      return value[keys[index]];
-    }
-  }
-  for (let index = 0; index < keys.length; index += 1) {
-    const child = value[keys[index]];
-    if (child && typeof child === 'object') {
-      const match = findExactRegionRecord(child, region, depth + 1);
-      if (match) return match;
-    }
-  }
-  return null;
 }
 
-function findRegionRecord(value, region, depth) {
-  if (depth > 5 || value === null || value === undefined) return null;
-  if (depth === 0) {
-    const exact = findExactRegionRecord(value, region, 0);
-    if (exact) return exact;
+function setCache(ctx, key, value) {
+  try {
+    if (ctx.storage) ctx.storage.setJSON(key, value);
+  } catch (_) {
+    // Rendering current data is more important than persisting it.
   }
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      const match = findRegionRecord(value[index], region, depth + 1);
-      if (match) return match;
-    }
-    return value.length > 0 ? value[0] : null;
-  }
-  if (typeof value !== 'object') return null;
-
-  const regionKeys = ['region', 'city', 'province', 'area', 'name', '地区', '城市', '省份', '名称'];
-  for (let index = 0; index < regionKeys.length; index += 1) {
-    const key = regionKeys[index];
-    if (regionMatches(value[key], region)) return value;
-  }
-  const keys = Object.keys(value);
-  for (let index = 0; index < keys.length; index += 1) {
-    if (regionMatches(keys[index], region) && value[keys[index]] && typeof value[keys[index]] === 'object') {
-      return value[keys[index]];
-    }
-  }
-  if (hasPriceLike(value)) return value;
-
-  const preferred = ['data', 'result', 'results', 'items', 'list', 'records', 'payload'];
-  for (let index = 0; index < preferred.length; index += 1) {
-    const child = value[preferred[index]];
-    if (child !== undefined) {
-      const match = findRegionRecord(child, region, depth + 1);
-      if (match) return match;
-    }
-  }
-  for (let index = 0; index < keys.length; index += 1) {
-    const child = value[keys[index]];
-    if (child && typeof child === 'object') {
-      const match = findRegionRecord(child, region, depth + 1);
-      if (match) return match;
-    }
-  }
-  return null;
-}
-
-function findField(value, aliases, depth) {
-  if (depth > 4 || value === null || value === undefined) return undefined;
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      const match = findField(value[index], aliases, depth + 1);
-      if (match !== undefined) return match;
-    }
-    return undefined;
-  }
-  if (typeof value !== 'object') return undefined;
-
-  const keys = Object.keys(value);
-  for (let aliasIndex = 0; aliasIndex < aliases.length; aliasIndex += 1) {
-    const alias = normalizeKey(aliases[aliasIndex]);
-    for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
-      const normalized = normalizeKey(keys[keyIndex]);
-      if (normalized === alias || normalized.includes(alias)) return value[keys[keyIndex]];
-    }
-  }
-  const preferred = ['data', 'result', 'results', 'prices', 'price', 'forecast', 'prediction'];
-  for (let index = 0; index < preferred.length; index += 1) {
-    if (value[preferred[index]] !== undefined) {
-      const match = findField(value[preferred[index]], aliases, depth + 1);
-      if (match !== undefined) return match;
-    }
-  }
-  for (let index = 0; index < keys.length; index += 1) {
-    const child = value[keys[index]];
-    if (child && typeof child === 'object') {
-      const match = findField(child, aliases, depth + 1);
-      if (match !== undefined) return match;
-    }
-  }
-  return undefined;
-}
-
-function parsePrice(value) {
-  if (value === undefined || value === null) return null;
-  if (typeof value === 'object') {
-    const nested = findField(value, ['price', 'value', 'amount', '价格', '售价'], 0);
-    return nested === undefined ? null : parsePrice(nested);
-  }
-  const text = String(value).replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
-  if (!text) return null;
-  const number = Number(text[0]);
-  return Number.isFinite(number) ? number : null;
-}
-
-function parsePrediction(record) {
-  const direct = findField(record, ['prediction92', 'predicted92', 'forecast92', '预测92', '预测价92'], 0);
-  const generic = direct === undefined
-    ? findField(record, ['prediction', 'predicted', 'forecast', 'nextprice', 'next_price', '预测', '预测价', '预测价格'], 0)
-    : direct;
-    if (generic && typeof generic === 'object') {
-      const nested = findField(generic, ['92', 'price92', '汽油92', '92号汽油'], 0);
-      return parsePrice(nested === undefined ? generic : nested);
-    }
-  return parsePrice(generic);
-}
-
-function toIso(value) {
-  if (value === undefined || value === null || value === '') return null;
-  if (typeof value === 'number' || /^\d+$/.test(String(value).trim())) {
-    const number = Number(value);
-    const millis = number < 100000000000 ? number * 1000 : number;
-    const date = new Date(millis);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
-  }
-  const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function pad2(value) {
@@ -262,62 +323,25 @@ function formatDateTime(iso) {
   return `${date.getMonth() + 1}月${date.getDate()}日 ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
-function displayPrice(value) {
+function priceText(value) {
   return value === null || value === undefined ? '--' : Number(value).toFixed(2);
 }
 
-function normalizePayload(payload, region) {
-  const record = findRegionRecord(payload, region, 0);
-  if (!record || typeof record !== 'object') throw new Error('API 返回中没有可识别的数据');
-
-  const resolvedRegion = stringValue(
-    findField(record, ['region', 'city', 'province', 'area', '地区', '城市', '省份'], 0),
-  ) || region;
-  const current = {
-    region: resolvedRegion,
-    gasoline92: parsePrice(findField(record, ['gasoline92', 'price92', 'petrol92', '92号汽油', '汽油92', '92'], 0)),
-    gasoline95: parsePrice(findField(record, ['gasoline95', 'price95', 'petrol95', '95号汽油', '汽油95', '95'], 0)),
-    gasoline98: parsePrice(findField(record, ['gasoline98', 'price98', 'petrol98', '98号汽油', '汽油98', '98'], 0)),
-    diesel: parsePrice(findField(record, ['diesel', 'price0', 'diesel0', '0号柴油', '柴油', '0'], 0)),
-    prediction: parsePrediction(record),
-    updatedAt: toIso(findField(record, ['updatedAt', 'updateTime', 'updated', 'time', 'date', '更新时间', '发布时间'], 0)),
-    nextAdjustAt: toIso(findField(record, ['nextAdjustAt', 'nextAdjustment', 'next_adjustment_time', 'nextDate', '下次调价时间', '下次调整时间'], 0)),
-  };
-
-  if (current.gasoline92 === null && current.gasoline95 === null && current.gasoline98 === null && current.diesel === null) {
-    throw new Error('API 返回中没有识别到油价字段');
-  }
-  if (!current.updatedAt) current.updatedAt = new Date().toISOString();
-  if (!current.nextAdjustAt && current.updatedAt) {
-    const estimated = new Date(current.updatedAt);
-    estimated.setDate(estimated.getDate() + 10);
-    current.nextAdjustAt = estimated.toISOString();
-    current.nextAdjustEstimated = true;
-  } else {
-    current.nextAdjustEstimated = false;
-  }
-  return current;
+function predictionText(prediction) {
+  if (!prediction) return '暂无预测';
+  const range = prediction.minimum === prediction.maximum
+    ? prediction.minimum.toFixed(2)
+    : `${prediction.minimum.toFixed(2)}-${prediction.maximum.toFixed(2)}`;
+  return `${prediction.direction === 'up' ? '预计上调' : '预计下调'} ${range}`;
 }
 
-function safeGetCache(ctx) {
-  try {
-    const cached = ctx.storage && ctx.storage.getJSON(CACHE_KEY);
-    return cached && typeof cached === 'object' ? cached : null;
-  } catch (_) {
-    return null;
-  }
+function predictionColor(prediction) {
+  if (!prediction) return COLORS.secondary;
+  return prediction.direction === 'up' ? COLORS.up : COLORS.down;
 }
 
-function safeSetCache(ctx, data) {
-  try {
-    if (ctx.storage) ctx.storage.setJSON(CACHE_KEY, data);
-  } catch (_) {
-    // Cache is optional; a network result should still render when storage is unavailable.
-  }
-}
-
-function text(textValue, font, textColor, extra) {
-  return Object.assign({ type: 'text', text: String(textValue), font, textColor }, extra || {});
+function text(value, font, textColor, extra) {
+  return Object.assign({ type: 'text', text: String(value), font, textColor }, extra || {});
 }
 
 function row(children, extra) {
@@ -328,210 +352,189 @@ function column(children, extra) {
   return Object.assign({ type: 'stack', direction: 'column', alignItems: 'start', gap: 4, children }, extra || {});
 }
 
-function labelValue(label, value, color) {
+function priceRow(label, value, delta) {
+  let deltaText = '';
+  let deltaColor = COLORS.secondary;
+  if (delta !== null && delta !== undefined && delta !== 0) {
+    deltaText = `${delta > 0 ? '+' : ''}${Number(delta).toFixed(2)}`;
+    deltaColor = delta > 0 ? COLORS.up : COLORS.down;
+  }
   return row([
-    text(label, { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1, minScale: 0.7 }),
+    text(label, { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
     { type: 'spacer' },
-    text(value, { size: 'caption1', weight: 'semibold' }, color || COLORS.primary, { maxLines: 1, minScale: 0.65, textAlign: 'right' }),
+    deltaText ? text(deltaText, { size: 'caption2', weight: 'semibold' }, deltaColor, { maxLines: 1 }) : { type: 'spacer', length: 2 },
+    text(`${priceText(value)} 元/L`, { size: 'caption1', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.65, textAlign: 'right' }),
   ]);
 }
 
-function buildHeader(data) {
+function header(data) {
+  const subtitle = data.stale ? '缓存数据' : `${data.provinceName}${data.areaName ? ` · ${data.areaName}` : ''}`;
   return row([
-    {
-      type: 'image',
-      src: 'sf-symbol:fuelpump.fill',
-      width: 18,
-      height: 18,
-      color: COLORS.accent,
-    },
+    { type: 'image', src: 'sf-symbol:fuelpump.fill', width: 18, height: 18, color: COLORS.accent },
     column([
-      text(data.region, { size: 'headline', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.7 }),
-      text(data.stale ? '缓存数据' : '实时油价', { size: 'caption2', weight: 'medium' }, data.stale ? COLORS.warning : COLORS.positive, { maxLines: 1 }),
+      text(`${data.region}油价`, { size: 'headline', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.65 }),
+      text(subtitle, { size: 'caption2', weight: 'medium' }, data.stale ? COLORS.warning : COLORS.secondary, { maxLines: 1, minScale: 0.65 }),
     ], { gap: 1 }),
   ], { gap: 7 });
 }
 
-function buildUpdatedLine(data) {
-  return row([
-    text('更新', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
-    text(formatDateTime(data.updatedAt), { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1, minScale: 0.65 }),
-  ], { gap: 4 });
-}
-
-function buildNextLine(data) {
-  const prefix = data.nextAdjustEstimated ? '下次调价(估)' : '下次调价';
+function adjustmentBlock(data) {
+  const adjustment = data.nextAdjustment;
   return column([
     row([
-      text(prefix, { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1, minScale: 0.65 }),
+      text('下次调价', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
       { type: 'spacer' },
-      text(formatDateTime(data.nextAdjustAt), { size: 'caption2', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.55, textAlign: 'right' }),
+      text(adjustment ? adjustment.label : '待公布', { size: 'caption2', weight: 'semibold' }, adjustment ? COLORS.primary : COLORS.secondary, { maxLines: 1, minScale: 0.55, textAlign: 'right' }),
     ]),
-    data.nextAdjustAt
-      ? {
-        type: 'date',
-        date: data.nextAdjustAt,
-        format: 'relative',
-        font: { size: 'caption2', weight: 'medium' },
-        textColor: COLORS.accent,
-        maxLines: 1,
-        minScale: 0.7,
-      }
+    adjustment
+      ? { type: 'date', date: adjustment.iso, format: 'relative', font: { size: 'caption2', weight: 'medium' }, textColor: COLORS.accent, maxLines: 1, minScale: 0.7 }
       : text('暂无调整时间', { size: 'caption2' }, COLORS.secondary, { maxLines: 1 }),
   ], { gap: 2 });
 }
 
-function buildPriceRows(data) {
-  return column([
-    labelValue('95号汽油', `${displayPrice(data.gasoline95)} 元/L`),
-    labelValue('98号汽油', `${displayPrice(data.gasoline98)} 元/L`),
-    labelValue('0号柴油', `${displayPrice(data.diesel)} 元/L`),
-  ], { gap: 5 });
-}
-
-function buildWidget(data, family, refreshAfter) {
+function buildAccessoryWidget(data, family, refreshAfter) {
   if (family === 'accessoryInline') {
     return {
       type: 'widget',
-      children: [text(`${data.region} 92号 ${displayPrice(data.gasoline92)} 预测 ${displayPrice(data.prediction)}`, { size: 'caption1', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.5 })],
+      children: [text(`${data.region} 92号 ${priceText(data.gasoline92)} · ${predictionText(data.prediction)}`, { size: 'caption1', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.45 })],
       padding: 2,
       backgroundColor: COLORS.background,
       refreshAfter,
+      url: SINOPEC_BASE,
     };
   }
   if (family === 'accessoryCircular') {
     return {
       type: 'widget',
       children: [
-        text(data.region, { size: 'caption2', weight: 'semibold' }, COLORS.secondary, { maxLines: 1, minScale: 0.6, textAlign: 'center' }),
-        text(displayPrice(data.gasoline92), { size: 'title3', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.55, textAlign: 'center' }),
-        text(`预 ${displayPrice(data.prediction)}`, { size: 'caption2', weight: 'medium' }, COLORS.accent, { maxLines: 1, minScale: 0.55, textAlign: 'center' }),
+        text(data.region, { size: 'caption2', weight: 'semibold' }, COLORS.secondary, { maxLines: 1, minScale: 0.55, textAlign: 'center' }),
+        text(priceText(data.gasoline92), { size: 'title3', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.5, textAlign: 'center' }),
+        text(data.prediction ? (data.prediction.direction === 'up' ? '预测涨' : '预测跌') : '暂无预测', { size: 'caption2', weight: 'medium' }, predictionColor(data.prediction), { maxLines: 1, minScale: 0.5, textAlign: 'center' }),
       ],
       gap: 2,
       padding: 5,
       backgroundColor: COLORS.background,
       refreshAfter,
+      url: SINOPEC_BASE,
     };
   }
-  if (family === 'accessoryRectangular') {
-    return {
-      type: 'widget',
-      children: [
-        row([
-          text(data.region, { size: 'caption1', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.65 }),
-          { type: 'spacer' },
-          text(`92 ${displayPrice(data.gasoline92)}`, { size: 'caption1', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.6, textAlign: 'right' }),
-        ]),
-        text(`预测 ${displayPrice(data.prediction)} · 调价 ${formatDateTime(data.nextAdjustAt)}`, { size: 'caption2', weight: 'medium' }, COLORS.accent, { maxLines: 1, minScale: 0.5 }),
-      ],
-      gap: 3,
-      padding: 5,
-      backgroundColor: COLORS.background,
-      refreshAfter,
-    };
+  return {
+    type: 'widget',
+    children: [
+      row([
+        text(data.region, { size: 'caption1', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.6 }),
+        { type: 'spacer' },
+        text(`92 ${priceText(data.gasoline92)}`, { size: 'caption1', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.55, textAlign: 'right' }),
+      ]),
+      text(`${predictionText(data.prediction)} · ${data.nextAdjustment ? data.nextAdjustment.label : '调价待公布'}`, { size: 'caption2', weight: 'medium' }, predictionColor(data.prediction), { maxLines: 1, minScale: 0.45 }),
+    ],
+    gap: 3,
+    padding: 5,
+    backgroundColor: COLORS.background,
+    refreshAfter,
+    url: SINOPEC_BASE,
+  };
+}
+
+function buildWidget(data, family, refreshAfter) {
+  if (family.indexOf('accessory') === 0) return buildAccessoryWidget(data, family, refreshAfter);
+  const small = family === 'systemSmall';
+  const large = family === 'systemLarge' || family === 'systemExtraLarge';
+  const children = [header(data)];
+
+  children.push(row([
+    column([
+      text('92号汽油', { size: small ? 'caption2' : 'caption1', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
+      text(`${priceText(data.gasoline92)} 元/L`, { size: large ? 'largeTitle' : 'title2', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.5 }),
+    ], { gap: 1 }),
+    { type: 'spacer' },
+    column([
+      text('下轮预测', { size: small ? 'caption2' : 'caption1', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
+      text(predictionText(data.prediction), { size: small ? 'caption1' : 'title3', weight: 'semibold' }, predictionColor(data.prediction), { maxLines: small ? 2 : 1, minScale: 0.5, textAlign: 'right' }),
+      data.prediction ? text('元/L', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1, textAlign: 'right' }) : { type: 'spacer', length: 1 },
+    ], { gap: 1, alignItems: 'end' }),
+  ], { alignItems: 'end', gap: 8 }));
+
+  if (!small) {
+    children.push(column([
+      priceRow('95号汽油', data.gasoline95, data.deltas.gasoline95),
+      priceRow('98号汽油', data.gasoline98, data.deltas.gasoline98),
+      priceRow('0号柴油', data.diesel, data.deltas.diesel),
+    ], { gap: 5 }));
   }
 
-  const isSmall = family === 'systemSmall';
-  const isLarge = family === 'systemLarge' || family === 'systemExtraLarge';
-  const children = [buildHeader(data)];
-
-  if (isSmall) {
-    children.push(row([
-      column([
-        text('92号汽油', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
-        text(`${displayPrice(data.gasoline92)}`, { size: 'title2', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.65 }),
-        text('元/L', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
-      ], { gap: 1 }),
-      { type: 'spacer' },
-      column([
-        text('预测', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
-        text(displayPrice(data.prediction), { size: 'headline', weight: 'semibold' }, COLORS.accent, { maxLines: 1, minScale: 0.65 }),
-        text('元/L', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
-      ], { gap: 1 }),
-    ], { alignItems: 'end', gap: 8 }));
-    children.push(buildUpdatedLine(data));
-    children.push(buildNextLine(data));
-  } else {
-    children.push(row([
-      column([
-        text('92号汽油', { size: 'caption1', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
-        text(`${displayPrice(data.gasoline92)} 元/L`, { size: isLarge ? 'largeTitle' : 'title2', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.55 }),
-      ], { gap: 1 }),
-      { type: 'spacer' },
-      column([
-        text('预测', { size: 'caption1', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
-        text(`${displayPrice(data.prediction)} 元/L`, { size: 'title3', weight: 'semibold' }, COLORS.accent, { maxLines: 1, minScale: 0.6 }),
-      ], { gap: 1 }),
-    ], { alignItems: 'end', gap: 10 }));
-    children.push(buildPriceRows(data));
-    children.push(buildUpdatedLine(data));
-    children.push(buildNextLine(data));
-  }
+  children.push(row([
+    text('本轮生效', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
+    { type: 'spacer' },
+    text(formatDateTime(data.effectiveAt), { size: 'caption2', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.6, textAlign: 'right' }),
+  ]));
+  children.push(adjustmentBlock(data));
 
   return {
     type: 'widget',
     children,
-    gap: isLarge ? 10 : 8,
-    padding: isSmall ? 12 : 14,
+    gap: large ? 10 : 8,
+    padding: small ? 12 : 14,
     backgroundColor: COLORS.background,
     refreshAfter,
+    url: SINOPEC_BASE,
   };
 }
 
-function buildErrorWidget(message, refreshAfter) {
+function errorWidget(message, refreshAfter) {
   return {
     type: 'widget',
     children: [
       row([
         { type: 'image', src: 'sf-symbol:exclamationmark.triangle.fill', width: 18, height: 18, color: COLORS.error },
         text('油价小组件', { size: 'headline', weight: 'bold' }, COLORS.primary, { maxLines: 1 }),
-      ], { gap: 7 }),
-      text(message, { size: 'caption1', weight: 'medium' }, COLORS.error, { maxLines: 5, minScale: 0.7 }),
-      text('请检查 Env 中的 API_URL 和接口返回', { size: 'caption2' }, COLORS.secondary, { maxLines: 2, minScale: 0.7 }),
+      ]),
+      text(message, { size: 'caption1', weight: 'medium' }, COLORS.error, { maxLines: 5, minScale: 0.65 }),
+      text('请检查网络或地区配置', { size: 'caption2' }, COLORS.secondary, { maxLines: 2 }),
     ],
     gap: 8,
     padding: 14,
     backgroundColor: COLORS.background,
     refreshAfter,
+    url: SINOPEC_BASE,
   };
 }
 
 export default async function (ctx) {
-  const region = getEnv(ctx, 'REGION', DEFAULT_REGION);
-  const refreshMinutes = parseRefreshMinutes(getEnv(ctx, 'REFRESH_MINUTES', DEFAULT_REFRESH_MINUTES));
-  const timeout = parseTimeout(getEnv(ctx, 'API_TIMEOUT', DEFAULT_TIMEOUT));
+  const provinceInput = getEnv(ctx, ['PROVINCE', 'PROVINCE_ID', 'province'], DEFAULT_PROVINCE);
+  const provinceCode = normalizeProvince(provinceInput);
+  const city = getEnv(ctx, ['CITY', 'city'], provinceCode === DEFAULT_PROVINCE ? DEFAULT_CITY : '');
+  const areaRaw = getEnv(ctx, ['AREA_INDEX', 'AREA', 'area'], '');
+  const explicitIndex = areaRaw === '' ? null : parseNumber(areaRaw, null);
+  const refreshMinutes = clamp(Math.round(parseNumber(getEnv(ctx, ['REFRESH_MINUTES'], DEFAULT_REFRESH_MINUTES)), 15), 15, 120);
+  const timeout = clamp(Math.round(parseNumber(getEnv(ctx, ['REQUEST_TIMEOUT'], DEFAULT_TIMEOUT)), DEFAULT_TIMEOUT), 3000, 30000);
   const refreshAfter = new Date(Date.now() + refreshMinutes * 60 * 1000).toISOString();
-  const apiTemplate = getEnv(ctx, 'API_URL', '');
   const family = ctx && ctx.widgetFamily ? ctx.widgetFamily : 'systemMedium';
+  const key = cacheKey(provinceCode, city, explicitIndex);
+  const cached = getCache(ctx, key);
 
-  if (!apiTemplate) {
-    return buildErrorWidget('未配置数据接口', refreshAfter);
-  }
-
-  let data = null;
-  let errorMessage = '';
+  let data;
   try {
-    const response = await ctx.http.get(buildApiUrl(apiTemplate, region), {
-      headers: parseHeaders(getEnv(ctx, 'API_HEADERS', '')),
-      timeout,
-      credentials: 'omit',
-    });
-    if (!response || response.status < 200 || response.status >= 300) {
-      throw new Error(`HTTP ${response ? response.status : '请求失败'}`);
+    data = await loadCurrentPrices(ctx, provinceCode, city, explicitIndex, timeout);
+    try {
+      const forecast = await loadPrediction(ctx, provinceCode, Math.min(timeout, 10000));
+      data.prediction = forecast.prediction || (cached && cached.prediction) || null;
+      data.nextAdjustment = forecast.nextAdjustment || (cached && cached.nextAdjustment) || nextAdjustmentFromCalendar(new Date());
+    } catch (_) {
+      data.prediction = (cached && cached.prediction) || null;
+      data.nextAdjustment = (cached && cached.nextAdjustment) || nextAdjustmentFromCalendar(new Date());
     }
-    data = normalizePayload(await response.json(), region);
-    data.cachedAt = new Date().toISOString();
-    safeSetCache(ctx, data);
+    data.fetchedAt = new Date().toISOString();
+    data.stale = false;
+    setCache(ctx, key, data);
   } catch (error) {
-    errorMessage = error && error.message ? error.message : '请求失败';
-    data = safeGetCache(ctx);
-    if (data && regionMatches(data.region, region)) data.stale = true;
-    else data = null;
+    if (!cached) {
+      const message = error && error.message ? error.message : '暂时无法获取油价';
+      return errorWidget(message, refreshAfter);
+    }
+    data = cached;
+    data.stale = true;
   }
 
-  if (!data) {
-    return buildErrorWidget(`暂时无法获取油价：${errorMessage}`, refreshAfter);
-  }
-  data.stale = Boolean(data.stale);
   return buildWidget(data, family, refreshAfter);
 }

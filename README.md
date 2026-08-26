@@ -48,7 +48,7 @@ Nagram is a third-party Telegram client. These rules cover Nagram's Telegram end
 
 ## Oil Price Widget for Egern
 
-The Egern `generic` widget script is organized under [`widgets/oil-price-widget`](widgets/oil-price-widget). It supports a configurable region, current 92/95/98/0 prices, prediction, update time, and next adjustment time.
+The Egern `generic` widget script is organized under [`widgets/oil-price-widget`](widgets/oil-price-widget). It supports a configurable region, current 92/95/98/0 prices, prediction, current price effective time, and next adjustment time.
 
 | Item | URL |
 | --- | --- |
@@ -57,7 +57,7 @@ The Egern `generic` widget script is organized under [`widgets/oil-price-widget`
 | Setup guide | [`widgets/oil-price-widget/README.md`](widgets/oil-price-widget/README.md) |
 | Env example | [`widgets/oil-price-widget/config.example.yaml`](widgets/oil-price-widget/config.example.yaml) |
 
-The script does not embed or call a third-party oil-price website. Set your trusted endpoint in `API_URL` and choose the region with `REGION`.
+Current prices and their effective time are loaded from the Sinopec sales interface used by the referenced GasPrice widget. Prediction and next-adjustment information follow the same widget's prediction page. No API URL or API key is required; choose a region with `PROVINCE`, `CITY`, and optional `AREA_INDEX`.
 
 ## Usage
 
