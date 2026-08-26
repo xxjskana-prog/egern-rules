@@ -48,6 +48,7 @@ const COMMON_HEADERS = {
 
 const COLORS = {
   background: { light: '#F5F7FA', dark: '#17191C' },
+  surface: { light: '#FFFFFF', dark: '#25282C' },
   primary: { light: '#17212B', dark: '#F2F4F7' },
   secondary: { light: '#5C6670', dark: '#A9B2BC' },
   accent: { light: '#0A84FF', dark: '#64B5FF' },
@@ -436,8 +437,89 @@ function buildAccessoryWidget(data, family, refreshAfter) {
   };
 }
 
+function mediumDelta(delta) {
+  if (delta === null || delta === undefined || !Number.isFinite(Number(delta))) {
+    return { value: '--', color: COLORS.secondary };
+  }
+  const number = Number(delta);
+  if (number === 0) return { value: '持平', color: COLORS.secondary };
+  return {
+    value: `${number > 0 ? '+' : ''}${number.toFixed(2)}`,
+    color: number > 0 ? COLORS.up : COLORS.down,
+  };
+}
+
+function mediumPriceCell(label, value, delta) {
+  const change = mediumDelta(delta);
+  return column([
+    text(label, { size: 10, weight: 'semibold' }, COLORS.secondary, { maxLines: 1, minScale: 0.7, textAlign: 'center' }),
+    text(priceText(value), { size: 16, weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.55, textAlign: 'center' }),
+    text(change.value, { size: 9, weight: 'semibold' }, change.color, { maxLines: 1, minScale: 0.65, textAlign: 'center' }),
+  ], {
+    alignItems: 'center',
+    gap: 1,
+    flex: 1,
+    height: 58,
+    padding: [5, 2, 4, 2],
+    borderRadius: 6,
+    backgroundColor: COLORS.surface,
+  });
+}
+
+function buildMediumWidget(data, refreshAfter) {
+  const subtitle = data.stale ? '缓存数据' : `${data.provinceName}${data.areaName ? ` · ${data.areaName}` : ''}`;
+  const prediction = data.prediction;
+  const predictionLabel = prediction
+    ? (prediction.direction === 'up' ? '预测上调' : '预测下调')
+    : '下轮预测';
+  const predictionValue = prediction
+    ? `${prediction.minimum.toFixed(2)}-${prediction.maximum.toFixed(2)} 元/L`
+    : '暂无预测';
+  const adjustmentValue = data.nextAdjustment ? data.nextAdjustment.label : '待公布';
+
+  return {
+    type: 'widget',
+    children: [
+      row([
+        { type: 'image', src: 'sf-symbol:fuelpump.fill', width: 16, height: 16, color: COLORS.accent },
+        column([
+          text(`${data.region}油价`, { size: 15, weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.65 }),
+          text(subtitle, { size: 10, weight: 'medium' }, data.stale ? COLORS.warning : COLORS.secondary, { maxLines: 1, minScale: 0.65 }),
+        ], { gap: 0 }),
+        { type: 'spacer' },
+        column([
+          text('本轮生效', { size: 9, weight: 'medium' }, COLORS.secondary, { maxLines: 1, textAlign: 'right' }),
+          text(formatDateTime(data.effectiveAt), { size: 10, weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.6, textAlign: 'right' }),
+        ], { gap: 0, alignItems: 'end' }),
+      ], { gap: 6 }),
+      row([
+        mediumPriceCell('92号', data.gasoline92, data.deltas.gasoline92),
+        mediumPriceCell('95号', data.gasoline95, data.deltas.gasoline95),
+        mediumPriceCell('98号', data.gasoline98, data.deltas.gasoline98),
+        mediumPriceCell('柴油', data.diesel, data.deltas.diesel),
+      ], { gap: 5, height: 58 }),
+      row([
+        column([
+          text(predictionLabel, { size: 9, weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
+          text(predictionValue, { size: 11, weight: 'semibold' }, predictionColor(prediction), { maxLines: 1, minScale: 0.55 }),
+        ], { gap: 1, flex: 1 }),
+        column([
+          text('下次调价', { size: 9, weight: 'medium' }, COLORS.secondary, { maxLines: 1, textAlign: 'right' }),
+          text(adjustmentValue, { size: 11, weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.55, textAlign: 'right' }),
+        ], { gap: 1, flex: 1, alignItems: 'end' }),
+      ], { gap: 8, alignItems: 'end' }),
+    ],
+    gap: 6,
+    padding: [10, 12, 8, 12],
+    backgroundColor: COLORS.background,
+    refreshAfter,
+    url: SINOPEC_BASE,
+  };
+}
+
 function buildWidget(data, family, refreshAfter) {
   if (family.indexOf('accessory') === 0) return buildAccessoryWidget(data, family, refreshAfter);
+  if (family === 'systemMedium') return buildMediumWidget(data, refreshAfter);
   const small = family === 'systemSmall';
   const large = family === 'systemLarge' || family === 'systemExtraLarge';
   const children = [header(data)];
