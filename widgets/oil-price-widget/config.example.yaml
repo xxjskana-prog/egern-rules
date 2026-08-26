@@ -7,6 +7,7 @@
 # 名称: AREA_INDEX      值: 0（可选，多价区索引，从 0 开始）
 # 名称: REFRESH_MINUTES 值: 30（可选，刷新间隔，单位为分钟）
 # 名称: REQUEST_TIMEOUT 值: 15000（可选，请求超时，单位为毫秒）
+# 名称: WIDGET_STYLE    值: glass（可选，glass 使用系统磨砂；classic 使用纯色背景）
 
 widgets:
   - name: "油价小组件"
@@ -22,3 +23,5 @@ widgets:
       REFRESH_MINUTES: "30"
       # 名称: REQUEST_TIMEOUT；值: 请求超时毫秒数。
       REQUEST_TIMEOUT: "15000"
+      # 名称: WIDGET_STYLE；值: glass 或 classic，默认 glass。
+      WIDGET_STYLE: "glass"

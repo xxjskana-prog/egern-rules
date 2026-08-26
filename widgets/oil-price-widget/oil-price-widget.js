@@ -7,6 +7,7 @@
  * 名称: AREA_INDEX      值: 0（可选，多价区索引，从 0 开始）
  * 名称: REFRESH_MINUTES 值: 30（可选，刷新间隔，单位为分钟）
  * 名称: REQUEST_TIMEOUT 值: 15000（可选，请求超时，单位为毫秒）
+ * 名称: WIDGET_STYLE   值: glass（可选，glass 使用系统磨砂；classic 使用纯色背景）
  *
  * Data flow adapted from:
  * https://raw.githubusercontent.com/jnlaoshu/MySelf/master/Egern/Widget/GasPrice.js
@@ -55,8 +56,10 @@ const COMMON_HEADERS = {
 };
 
 const COLORS = {
-  // Egern 文档支持 rgba() 颜色；价格单元使用半透明层叠在系统材质之上。
-  surface: { light: 'rgba(255,255,255,0.42)', dark: 'rgba(37,40,44,0.48)' },
+  background: { light: '#F5F7FA', dark: '#17191C' },
+  // glass 模式下，价格单元使用与系统材质叠加的低透明度玻璃层。
+  surfaceGlass: { light: 'rgba(255,255,255,0.18)', dark: 'rgba(255,255,255,0.08)' },
+  surfaceClassic: { light: '#FFFFFF', dark: '#25282C' },
   primary: { light: '#17212B', dark: '#F2F4F7' },
   secondary: { light: '#5C6670', dark: '#A9B2BC' },
   accent: { light: '#0A84FF', dark: '#64B5FF' },
@@ -84,6 +87,19 @@ function clamp(value, min, max) {
 function parseNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function styleMode(ctx) {
+  const value = getEnv(ctx, ['WIDGET_STYLE'], 'glass').toLowerCase();
+  return value === 'classic' ? 'classic' : 'glass';
+}
+
+function rootBackground(mode) {
+  return mode === 'classic' ? { backgroundColor: COLORS.background } : {};
+}
+
+function surfaceColor(mode) {
+  return mode === 'classic' ? COLORS.surfaceClassic : COLORS.surfaceGlass;
 }
 
 function normalizeProvince(value) {
@@ -414,10 +430,11 @@ function adjustmentBlock(data) {
   ], { gap: 2 });
 }
 
-function buildAccessoryWidget(data, family, refreshAfter) {
+function buildAccessoryWidget(data, family, refreshAfter, mode) {
   if (family === 'accessoryInline') {
     return {
       type: 'widget',
+      ...rootBackground(mode),
       children: [text(`${data.region} 92号 ${priceText(data.gasoline92)} · ${predictionText(data.prediction)}`, { size: 'caption1', weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.45 })],
       padding: 2,
       refreshAfter,
@@ -427,6 +444,7 @@ function buildAccessoryWidget(data, family, refreshAfter) {
   if (family === 'accessoryCircular') {
     return {
       type: 'widget',
+      ...rootBackground(mode),
       children: [
         text(data.region, { size: 'caption2', weight: 'semibold' }, COLORS.secondary, { maxLines: 1, minScale: 0.55, textAlign: 'center' }),
         text(priceText(data.gasoline92), { size: 'title3', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.5, textAlign: 'center' }),
@@ -467,7 +485,7 @@ function mediumDelta(delta) {
   };
 }
 
-function mediumPriceCell(label, value, delta) {
+function mediumPriceCell(label, value, delta, mode) {
   const change = mediumDelta(delta);
   return column([
     text(label, { size: 10, weight: 'semibold' }, COLORS.secondary, { maxLines: 1, minScale: 0.7, textAlign: 'center' }),
@@ -480,11 +498,11 @@ function mediumPriceCell(label, value, delta) {
     height: 58,
     padding: [5, 2, 4, 2],
     borderRadius: 6,
-    backgroundColor: COLORS.surface,
+    backgroundColor: surfaceColor(mode),
   });
 }
 
-function smallPriceCell(label, value) {
+function smallPriceCell(label, value, mode) {
   return column([
     text(label, { size: 9, weight: 'semibold' }, COLORS.secondary, { maxLines: 1, minScale: 0.7, textAlign: 'center' }),
     row([
@@ -498,7 +516,7 @@ function smallPriceCell(label, value) {
     height: 28,
     padding: [3, 2, 2, 2],
     borderRadius: 6,
-    backgroundColor: COLORS.surface,
+    backgroundColor: surfaceColor(mode),
   });
 }
 
@@ -510,20 +528,21 @@ function smallPredictionText(prediction) {
   return `${prediction.direction === 'up' ? '涨' : '跌'} ${range}`;
 }
 
-function buildSmallWidget(data, refreshAfter) {
+function buildSmallWidget(data, refreshAfter, mode) {
   const refreshLabel = data.fetchedAt ? formatDateTime(data.fetchedAt) : '未提供';
   const adjustmentLabel = data.nextAdjustment ? data.nextAdjustment.label : '待公布';
   return {
     type: 'widget',
+    ...rootBackground(mode),
     children: [
       smallHeader(data),
       row([
-        smallPriceCell('92号', data.gasoline92),
-        smallPriceCell('95号', data.gasoline95),
+        smallPriceCell('92号', data.gasoline92, mode),
+        smallPriceCell('95号', data.gasoline95, mode),
       ], { gap: 4, height: 28 }),
       row([
-        smallPriceCell('98号', data.gasoline98),
-        smallPriceCell('柴油', data.diesel),
+        smallPriceCell('98号', data.gasoline98, mode),
+        smallPriceCell('柴油', data.diesel, mode),
       ], { gap: 4, height: 28 }),
       row([
         column([
@@ -554,7 +573,7 @@ function buildSmallWidget(data, refreshAfter) {
   };
 }
 
-function buildMediumWidget(data, refreshAfter) {
+function buildMediumWidget(data, refreshAfter, mode) {
   const subtitle = data.stale ? '缓存数据' : `${data.provinceName}${data.areaName ? ` · ${data.areaName}` : ''}`;
   const prediction = data.prediction;
   const predictionLabel = prediction
@@ -567,6 +586,7 @@ function buildMediumWidget(data, refreshAfter) {
 
   return {
     type: 'widget',
+    ...rootBackground(mode),
     children: [
       row([
         { type: 'image', src: 'sf-symbol:fuelpump.fill', width: 16, height: 16, color: COLORS.accent },
@@ -581,10 +601,10 @@ function buildMediumWidget(data, refreshAfter) {
         ], { gap: 0, alignItems: 'end' }),
       ], { gap: 6 }),
       row([
-        mediumPriceCell('92号', data.gasoline92, data.deltas.gasoline92),
-        mediumPriceCell('95号', data.gasoline95, data.deltas.gasoline95),
-        mediumPriceCell('98号', data.gasoline98, data.deltas.gasoline98),
-        mediumPriceCell('柴油', data.diesel, data.deltas.diesel),
+        mediumPriceCell('92号', data.gasoline92, data.deltas.gasoline92, mode),
+        mediumPriceCell('95号', data.gasoline95, data.deltas.gasoline95, mode),
+        mediumPriceCell('98号', data.gasoline98, data.deltas.gasoline98, mode),
+        mediumPriceCell('柴油', data.diesel, data.deltas.diesel, mode),
       ], { gap: 5, height: 58 }),
       row([
         column([
@@ -604,10 +624,10 @@ function buildMediumWidget(data, refreshAfter) {
   };
 }
 
-function buildWidget(data, family, refreshAfter) {
-  if (family.indexOf('accessory') === 0) return buildAccessoryWidget(data, family, refreshAfter);
-  if (family === 'systemSmall') return buildSmallWidget(data, refreshAfter);
-  if (family === 'systemMedium') return buildMediumWidget(data, refreshAfter);
+function buildWidget(data, family, refreshAfter, mode) {
+  if (family.indexOf('accessory') === 0) return buildAccessoryWidget(data, family, refreshAfter, mode);
+  if (family === 'systemSmall') return buildSmallWidget(data, refreshAfter, mode);
+  if (family === 'systemMedium') return buildMediumWidget(data, refreshAfter, mode);
   const large = family === 'systemLarge' || family === 'systemExtraLarge';
   const children = [header(data)];
 
@@ -639,6 +659,7 @@ function buildWidget(data, family, refreshAfter) {
 
   return {
     type: 'widget',
+    ...rootBackground(mode),
     children,
     gap: large ? 10 : 8,
     padding: 14,
@@ -647,9 +668,10 @@ function buildWidget(data, family, refreshAfter) {
   };
 }
 
-function errorWidget(message, refreshAfter) {
+function errorWidget(message, refreshAfter, mode) {
   return {
     type: 'widget',
+    ...rootBackground(mode),
     children: [
       row([
         { type: 'image', src: 'sf-symbol:exclamationmark.triangle.fill', width: 18, height: 18, color: COLORS.error },
@@ -675,6 +697,7 @@ export default async function (ctx) {
   const timeout = clamp(Math.round(parseNumber(getEnv(ctx, ['REQUEST_TIMEOUT'], DEFAULT_TIMEOUT)), DEFAULT_TIMEOUT), 3000, 30000);
   const refreshAfter = new Date(Date.now() + refreshMinutes * 60 * 1000).toISOString();
   const family = ctx && ctx.widgetFamily ? ctx.widgetFamily : 'systemMedium';
+  const mode = styleMode(ctx);
   const key = cacheKey(provinceCode, city, explicitIndex);
   const cached = getCache(ctx, key);
 
@@ -695,11 +718,11 @@ export default async function (ctx) {
   } catch (error) {
     if (!cached) {
       const message = error && error.message ? error.message : '暂时无法获取油价';
-      return errorWidget(message, refreshAfter);
+      return errorWidget(message, refreshAfter, mode);
     }
     data = cached;
     data.stale = true;
   }
 
-  return buildWidget(data, family, refreshAfter);
+  return buildWidget(data, family, refreshAfter, mode);
 }
