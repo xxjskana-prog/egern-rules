@@ -1,0 +1,13 @@
+name: "油价小组件"
+description: "显示自选地区的实时油价、预测及调价时间"
+author: "xxjskana-prog"
+
+scriptings:
+  - generic:
+      name: "oil-price-widget"
+      script_url: "https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/widgets/oil-price-widget/oil-price-widget.js"
+      timeout: 20
+
+widgets:
+  - name: "油价小组件"
+    script_name: "oil-price-widget"

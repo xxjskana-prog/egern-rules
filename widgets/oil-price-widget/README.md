@@ -31,10 +31,9 @@
 
 ## 安装
 
-1. 在 Egern「工具 → 脚本」中新建脚本，类型选择 `generic`，名称填写 `oil-price-widget`。
-2. 将 [油价小组件.js](./油价小组件.js) 的内容粘贴到脚本文件并保存。
-3. 在小组件画廊新建小组件，脚本选择 `oil-price-widget`。
-4. 在主配置的 `widgets` 中加入 [配置示例.yaml](./配置示例.yaml) 的内容，并按你的接口修改 `API_URL`、`REGION` 和 Env。
+推荐直接将 [module.yaml](./module.yaml) 作为模块 URL 添加到 Egern；模块会自动注册 generic 脚本和小组件。也可以手动使用 [oil-price-widget.js](./oil-price-widget.js)。
+
+添加模块后，在模块的 Env 中设置 `API_URL`、`REGION` 等参数；[config.example.yaml](./config.example.yaml) 提供了完整示例。
 
 脚本只使用 Egern 文档列出的 `ctx.http.get`、`ctx.storage`、`ctx.widgetFamily` 和小组件 DSL 元素。
 

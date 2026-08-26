@@ -50,6 +50,7 @@ The Egern `generic` widget script is organized under [`widgets/oil-price-widget`
 
 | Item | URL |
 | --- | --- |
+| Module (raw) | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/widgets/oil-price-widget/module.yaml` |
 | Script (raw) | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/widgets/oil-price-widget/oil-price-widget.js` |
 | Setup guide | [`widgets/oil-price-widget/README.md`](widgets/oil-price-widget/README.md) |
 | Env example | [`widgets/oil-price-widget/config.example.yaml`](widgets/oil-price-widget/config.example.yaml) |
