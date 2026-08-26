@@ -1,5 +1,7 @@
 # Proxy Rules
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Personal rule sets for Loon, Egern, and Shadowrocket.
 
 ## Gemini
