@@ -387,6 +387,19 @@ function header(data) {
   ], { gap: 7 });
 }
 
+function smallHeader(data) {
+  const subtitle = data.stale
+    ? '缓存数据 · 元/L'
+    : `${data.provinceName}${data.areaName ? ` · ${data.areaName}` : ''} · 元/L`;
+  return row([
+    { type: 'image', src: 'sf-symbol:fuelpump.fill', width: 16, height: 16, color: COLORS.accent },
+    column([
+      text(`${data.region}油价`, { size: 14, weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.6 }),
+      text(subtitle, { size: 9, weight: 'medium' }, data.stale ? COLORS.warning : COLORS.secondary, { maxLines: 1, minScale: 0.55 }),
+    ], { gap: 0 }),
+  ], { gap: 6 });
+}
+
 function adjustmentBlock(data) {
   const adjustment = data.nextAdjustment;
   return column([
@@ -471,6 +484,70 @@ function mediumPriceCell(label, value, delta) {
   });
 }
 
+function smallPriceCell(label, value) {
+  return column([
+    text(label, { size: 9, weight: 'semibold' }, COLORS.secondary, { maxLines: 1, minScale: 0.7, textAlign: 'center' }),
+    row([
+      text(priceText(value), { size: 15, weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.55 }),
+      text('元/L', { size: 8, weight: 'medium' }, COLORS.secondary, { maxLines: 1, minScale: 0.7 }),
+    ], { gap: 1, alignItems: 'end' }),
+  ], {
+    alignItems: 'center',
+    gap: 0,
+    flex: 1,
+    height: 28,
+    padding: [3, 2, 2, 2],
+    borderRadius: 6,
+    backgroundColor: COLORS.surface,
+  });
+}
+
+function smallPredictionText(prediction) {
+  if (!prediction) return '暂无';
+  const range = prediction.minimum === prediction.maximum
+    ? prediction.minimum.toFixed(2)
+    : `${prediction.minimum.toFixed(2)}-${prediction.maximum.toFixed(2)}`;
+  return `${prediction.direction === 'up' ? '涨' : '跌'} ${range}`;
+}
+
+function buildSmallWidget(data, refreshAfter) {
+  const refreshLabel = data.fetchedAt ? formatDateTime(data.fetchedAt) : '未提供';
+  const adjustmentLabel = data.nextAdjustment ? data.nextAdjustment.label : '待公布';
+  return {
+    type: 'widget',
+    children: [
+      smallHeader(data),
+      row([
+        smallPriceCell('92号', data.gasoline92),
+        smallPriceCell('95号', data.gasoline95),
+      ], { gap: 4, height: 28 }),
+      row([
+        smallPriceCell('98号', data.gasoline98),
+        smallPriceCell('柴油', data.diesel),
+      ], { gap: 4, height: 28 }),
+      row([
+        text(data.stale ? '上次刷新' : '最近刷新', { size: 8, weight: 'medium' }, data.stale ? COLORS.warning : COLORS.secondary, { maxLines: 1 }),
+        { type: 'spacer' },
+        text(refreshLabel, { size: 9, weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.55, textAlign: 'right' }),
+      ], { gap: 4 }),
+      row([
+        column([
+          text('下轮预测', { size: 8, weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
+          text(smallPredictionText(data.prediction), { size: 9, weight: 'semibold' }, predictionColor(data.prediction), { maxLines: 1, minScale: 0.45 }),
+        ], { gap: 0, flex: 1 }),
+        column([
+          text('下次调价', { size: 8, weight: 'medium' }, COLORS.secondary, { maxLines: 1, textAlign: 'right' }),
+          text(adjustmentLabel, { size: 9, weight: 'semibold' }, COLORS.primary, { maxLines: 1, minScale: 0.45, textAlign: 'right' }),
+        ], { gap: 0, flex: 1, alignItems: 'end' }),
+      ], { gap: 6, alignItems: 'end' }),
+    ],
+    gap: 3,
+    padding: [8, 10, 8, 10],
+    refreshAfter,
+    url: SINOPEC_BASE,
+  };
+}
+
 function buildMediumWidget(data, refreshAfter) {
   const subtitle = data.stale ? '缓存数据' : `${data.provinceName}${data.areaName ? ` · ${data.areaName}` : ''}`;
   const prediction = data.prediction;
@@ -523,31 +600,29 @@ function buildMediumWidget(data, refreshAfter) {
 
 function buildWidget(data, family, refreshAfter) {
   if (family.indexOf('accessory') === 0) return buildAccessoryWidget(data, family, refreshAfter);
+  if (family === 'systemSmall') return buildSmallWidget(data, refreshAfter);
   if (family === 'systemMedium') return buildMediumWidget(data, refreshAfter);
-  const small = family === 'systemSmall';
   const large = family === 'systemLarge' || family === 'systemExtraLarge';
   const children = [header(data)];
 
   children.push(row([
     column([
-      text('92号汽油', { size: small ? 'caption2' : 'caption1', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
+      text('92号汽油', { size: 'caption1', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
       text(`${priceText(data.gasoline92)} 元/L`, { size: large ? 'largeTitle' : 'title2', weight: 'bold' }, COLORS.primary, { maxLines: 1, minScale: 0.5 }),
     ], { gap: 1 }),
     { type: 'spacer' },
     column([
-      text('下轮预测', { size: small ? 'caption2' : 'caption1', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
-      text(predictionText(data.prediction), { size: small ? 'caption1' : 'title3', weight: 'semibold' }, predictionColor(data.prediction), { maxLines: small ? 2 : 1, minScale: 0.5, textAlign: 'right' }),
+      text('下轮预测', { size: 'caption1', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
+      text(predictionText(data.prediction), { size: 'title3', weight: 'semibold' }, predictionColor(data.prediction), { maxLines: 1, minScale: 0.5, textAlign: 'right' }),
       data.prediction ? text('元/L', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1, textAlign: 'right' }) : { type: 'spacer', length: 1 },
     ], { gap: 1, alignItems: 'end' }),
   ], { alignItems: 'end', gap: 8 }));
 
-  if (!small) {
-    children.push(column([
-      priceRow('95号汽油', data.gasoline95, data.deltas.gasoline95),
-      priceRow('98号汽油', data.gasoline98, data.deltas.gasoline98),
-      priceRow('0号柴油', data.diesel, data.deltas.diesel),
-    ], { gap: 5 }));
-  }
+  children.push(column([
+    priceRow('95号汽油', data.gasoline95, data.deltas.gasoline95),
+    priceRow('98号汽油', data.gasoline98, data.deltas.gasoline98),
+    priceRow('0号柴油', data.diesel, data.deltas.diesel),
+  ], { gap: 5 }));
 
   children.push(row([
     text('本轮生效', { size: 'caption2', weight: 'medium' }, COLORS.secondary, { maxLines: 1 }),
@@ -560,7 +635,7 @@ function buildWidget(data, family, refreshAfter) {
     type: 'widget',
     children,
     gap: large ? 10 : 8,
-    padding: small ? 12 : 14,
+    padding: 14,
     refreshAfter,
     url: SINOPEC_BASE,
   };

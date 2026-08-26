@@ -4,6 +4,8 @@
 
 组件根容器不指定 `backgroundColor`，交由 iOS WidgetKit 使用系统默认的毛玻璃材质；中号价格单元叠加 Egern 文档支持的半透明 `rgba()` 颜色。Egern 当前没有公开的 `blur` 或 `material` DSL 属性，因此脚本不使用未文档化字段。
 
+小号组件采用 2×2 网格同时显示 92/95/98 号汽油和 0 号柴油，并在底部显示最近一次刷新时间、下轮预测和下次调价日期。
+
 ## 数据来源
 
 - 当前油价与本轮生效时间：中国石化销售页面接口 `https://cx.sinopecsales.com/yjkqiantai`。
