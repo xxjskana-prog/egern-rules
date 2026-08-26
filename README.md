@@ -44,6 +44,18 @@ Nagram is a third-party Telegram client. These rules cover Nagram's Telegram end
 | Egern | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/TestFlight.yaml` |
 | Shadowrocket | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/TestFlight-Shadowrocket.list` |
 
+## Oil Price Widget for Egern
+
+The Egern `generic` widget script is organized under [`widgets/oil-price-widget`](widgets/oil-price-widget). It supports a configurable region, current 92/95/98/0 prices, prediction, update time, and next adjustment time.
+
+| Item | URL |
+| --- | --- |
+| Script (raw) | `https://raw.githubusercontent.com/xxjskana-prog/egern-rules/main/widgets/oil-price-widget/oil-price-widget.js` |
+| Setup guide | [`widgets/oil-price-widget/README.md`](widgets/oil-price-widget/README.md) |
+| Env example | [`widgets/oil-price-widget/config.example.yaml`](widgets/oil-price-widget/config.example.yaml) |
+
+The script does not embed or call a third-party oil-price website. Set your trusted endpoint in `API_URL` and choose the region with `REGION`.
+
 ## Usage
 
 Loon and Shadowrocket rule-set example:

@@ -1,0 +1,17 @@
+# 将油价小组件.js 作为 generic 脚本导入 Egern 后，
+# 在主配置的 widgets 字段中加入以下内容。
+# API_URL 是唯一的数据请求地址；脚本不会访问其他固定网站。
+
+widgets:
+  - name: "油价小组件"
+    script_name: "oil-price-widget"
+    env:
+      # {region} 会替换为经过 URL 编码的 REGION。
+      API_URL: "https://your-oil-api.example/v1/prices?city={region}"
+      REGION: "北京"
+      # 接口返回 JSON 后，脚本会自动识别常见字段名：
+      # 92、95、98、0、gasoline92、price95、diesel、prediction、updatedAt、nextAdjustAt 等。
+      # 如需请求头，填写 JSON 字符串；不需要时删除此项。
+      API_HEADERS: '{"Accept":"application/json"}'
+      REFRESH_MINUTES: "30"
+      API_TIMEOUT: "10000"
