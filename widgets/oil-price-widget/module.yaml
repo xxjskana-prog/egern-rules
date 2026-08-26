@@ -5,7 +5,7 @@
 # 名称: REFRESH_MINUTES 值: 30（刷新间隔，单位为分钟；可选）
 # 名称: REQUEST_TIMEOUT 值: 15000（请求超时，单位为毫秒；可选）
 name: "油价小组件"
-description: "显示自选地区油价、预测及调价时间。Env 示例：名称 PROVINCE，值 51；名称 CITY，值 成都。"
+description: "显示自选地区油价、预测及调价时间，使用半透明磨砂背景。Env 示例：名称 PROVINCE，值 51；名称 CITY，值 成都。"
 author: "xxjskana-prog"
 
 scriptings:

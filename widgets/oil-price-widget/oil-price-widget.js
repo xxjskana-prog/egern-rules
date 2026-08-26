@@ -55,8 +55,9 @@ const COMMON_HEADERS = {
 };
 
 const COLORS = {
-  background: { light: '#F5F7FA', dark: '#17191C' },
-  surface: { light: '#FFFFFF', dark: '#25282C' },
+  // Egern 文档支持 rgba() 颜色；半透明背景可透出 iOS 小组件宿主的系统材质。
+  background: { light: 'rgba(245,247,250,0.62)', dark: 'rgba(23,25,28,0.68)' },
+  surface: { light: 'rgba(255,255,255,0.42)', dark: 'rgba(37,40,44,0.48)' },
   primary: { light: '#17212B', dark: '#F2F4F7' },
   secondary: { light: '#5C6670', dark: '#A9B2BC' },
   accent: { light: '#0A84FF', dark: '#64B5FF' },
